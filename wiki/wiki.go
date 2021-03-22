@@ -27,21 +27,29 @@ func main() {
 			log.Fatalln("Error: Not get url")
 		}
 		doc := soup.HTMLParse(resp)
-		title := doc.Find("h1", "id", "firstHeading")
 		body := doc.Find("div", "id", "bodyContent")
-		ps := body.FindAll("p")
-		refs := body.Find("div", "class", "reflist").FindAll("a")
-		re := regexp.MustCompile(`\[[0-9]*]`)
-		fmt.Printf("%v\n\n", strings.ToUpper(title.Text()))
-		for _, p := range ps {
-			fmt.Println(re.ReplaceAllLiteralString(p.FullText(), ""))
+		re, err := regexp.Compile(`\[[0-9]*]`)
+		if err != nil {
+			log.Fatalln("ERROR: Regex error compile")
 		}
-		fmt.Printf("REFERENCES:\n\n")
-		for _, ref := range refs {
-			if len(ref.Text()) > 4 {
-
-				fmt.Printf("%v -> %v\n", ref.Text(), ref.Attrs()["href"])
+		refs := body.Find("div", "class", "reflist")
+		if refs.Error == nil {
+			title := doc.Find("h1", "id", "firstHeading")
+			fmt.Printf("%v\n\n", strings.ToUpper(title.Text()))
+			ps := body.FindAll("p")
+			for _, p := range ps {
+				fmt.Println(re.ReplaceAllLiteralString(p.FullText(), ""))
 			}
+			fmt.Printf("REFERENCES:\n\n")
+
+			for _, ref := range refs.FindAll("a") {
+				if len(ref.Text()) > 4 {
+
+					fmt.Printf("%v -> %v\n", ref.Text(), ref.Attrs()["href"])
+				}
+			}
+		} else {
+			fmt.Printf("Not Found Word\nSorry :(\n")
 		}
 	}
 }
