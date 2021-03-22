@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
+	"regexp"
+	"strings"
+
+	"github.com/anaskhan96/soup"
 )
 
 func main() {
@@ -20,15 +22,26 @@ func main() {
 		flag.Parse()
 		url := string("https://" + *lang + ".wikipedia.org/wiki/" + *word)
 
-		resp, err := http.Get(url)
+		resp, err := soup.Get(url)
 		if err != nil {
-			log.Fatalln("Error: ", err)
+			log.Fatalln("Error: Not get url")
 		}
-		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println(err)
+		doc := soup.HTMLParse(resp)
+		title := doc.Find("h1", "id", "firstHeading")
+		body := doc.Find("div", "id", "bodyContent")
+		ps := body.FindAll("p")
+		refs := body.Find("div", "class", "reflist").FindAll("a")
+		re := regexp.MustCompile(`\[[0-9]*]`)
+		fmt.Printf("%v\n\n", strings.ToUpper(title.Text()))
+		for _, p := range ps {
+			fmt.Println(re.ReplaceAllLiteralString(p.FullText(), ""))
 		}
-		fmt.Println(string(body))
+		fmt.Printf("REFERENCES:\n\n")
+		for _, ref := range refs {
+			if len(ref.Text()) > 4 {
+
+				fmt.Printf("%v -> %v\n", ref.Text(), ref.Attrs()["href"])
+			}
+		}
 	}
 }
