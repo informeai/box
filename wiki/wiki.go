@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -12,44 +12,80 @@ import (
 )
 
 func main() {
-	if len(os.Args) == 1 {
-		fmt.Println("Use: wiki -l <language> -w <word-search>")
+	if err := verifyArgs(os.Args); err != nil {
+		fmt.Println(err)
 	} else {
 
-		lang := flag.String("l", "en", "language for search wikipedia")
-		word := flag.String("w", "wikipedia", "word for search")
-
-		flag.Parse()
-		url := string("https://" + *lang + ".wikipedia.org/wiki/" + *word)
-
-		resp, err := soup.Get(url)
+		url := parseFlagToUrl()
+		resp, err := getPage(url)
 		if err != nil {
-			log.Fatalln("Error: Not get url")
+			fmt.Println(err)
 		}
-		doc := soup.HTMLParse(resp)
-		body := doc.Find("div", "id", "bodyContent")
-		re, err := regexp.Compile(`\[[0-9]*]`)
+		resp, err = parseToHTML(resp)
 		if err != nil {
-			log.Fatalln("ERROR: Regex error compile")
+			fmt.Println(err)
 		}
-		refs := body.Find("div", "class", "reflist")
-		if refs.Error == nil {
-			title := doc.Find("h1", "id", "firstHeading")
-			fmt.Printf("%v\n\n", strings.ToUpper(title.Text()))
-			ps := body.FindAll("p")
-			for _, p := range ps {
-				fmt.Println(re.ReplaceAllLiteralString(p.FullText(), ""))
-			}
-			fmt.Printf("REFERENCES:\n\n")
-
-			for _, ref := range refs.FindAll("a") {
-				if len(ref.Text()) > 4 {
-
-					fmt.Printf("%v -> %v\n", ref.Text(), ref.Attrs()["href"])
-				}
-			}
-		} else {
-			fmt.Printf("Not Found Word\nSorry :(\n")
-		}
+		fmt.Println(resp)
 	}
+
+}
+
+func verifyArgs(a []string) error {
+	if len(a) != 5 {
+		return errors.New("error: all params not exited\nUse: wiki -l <language> -w <word-search>")
+	}
+	return nil
+}
+func parseFlagToUrl() string {
+	lang := flag.String("l", "en", "language for search wikipedia")
+	word := flag.String("w", "wikipedia", "word for search")
+	flag.Parse()
+	return string("https://" + *lang + ".wikipedia.org/wiki/" + *word)
+}
+func getPage(s string) (string, error) {
+	r, err := soup.Get(s)
+	if err != nil {
+		return "", errors.New("error: Not get url")
+	}
+	return r, nil
+}
+func parseToHTML(s string) (string, error) {
+	var text string
+	doc := soup.HTMLParse(s)
+	body := doc.Find("div", "id", "bodyContent")
+	refs := body.Find("div", "class", "reflist")
+	if refs.Error == nil {
+		title := doc.Find("h1", "id", "firstHeading")
+		text += fmt.Sprintf("%v:\n", strings.ToUpper(title.Text()))
+		ps := body.FindAll("p")
+		for _, p := range ps {
+			t, err := regexTratament(p.FullText())
+			if err != nil {
+				return "", err
+			}
+			text += t
+		}
+
+		text += fmt.Sprintf("\n%v\n\n", strings.ToUpper("references:"))
+
+		for _, ref := range refs.FindAll("a") {
+			if len(ref.Text()) > 4 {
+
+				text += fmt.Sprintf("%v -> %v\n", ref.Text(), ref.Attrs()["href"])
+
+			}
+		}
+	} else {
+		t := &text
+		*t = "Not Found Word\nSorry :("
+	}
+	return text, nil
+}
+
+func regexTratament(s string) (string, error) {
+	re, err := regexp.Compile(`\[[0-9]*]`)
+	if err != nil {
+		return "", errors.New("error: regex error compile")
+	}
+	return re.ReplaceAllLiteralString(s, ""), nil
 }
