@@ -1,18 +1,20 @@
-package main
+package wiki
 
 
 import (
 
-	"testings"
+	"testing"
+	//"os"
 
 )
 
 
-func TestWiki(t *testings.T){
+func TestWiki(t *testing.T){
 	
-	err := verifyArgs(os.Args)
+	wiki := NewWiki([]string{"wiki","-l","en","-w","cafe"})
+	err := wiki.GetPage()
 	if err != nil{
-		t.Fataln(err)
+		t.Fatal(err)
 	}
 
 

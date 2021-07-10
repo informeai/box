@@ -1,55 +1,59 @@
-package main
+package wiki
 
 import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/anaskhan96/soup"
 )
 
-func main() {
-	if err := verifyArgs(os.Args); err != nil {
-		fmt.Println(err)
-	} else {
+type Wiki struct{
+	Args []string
+	Url string
+}
 
-		url := parseFlagToUrl()
-		resp, err := getPage(url)
-		if err != nil {
-			fmt.Println(err)
-		}
-		resp, err = parseToHTML(resp)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println(resp)
-	}
+func NewWiki(args []string) *Wiki{
+	return &Wiki{Args:args}
 
 }
 
-func verifyArgs(a []string) error {
-	if len(a) != 5 {
+
+func(w *Wiki) verifyArgs() error {
+	if len(w.Args) != 5 {
 		return errors.New("error: all params not exited\nUse: wiki -l <language> -w <word-search>")
 	}
 	return nil
 }
-func parseFlagToUrl() string {
+
+func(w *Wiki) parseFlagToUrl() {
 	lang := flag.String("l", "en", "language for search wikipedia")
 	word := flag.String("w", "wikipedia", "word for search")
 	flag.Parse()
-	return string("https://" + *lang + ".wikipedia.org/wiki/" + *word)
+	w.Url = fmt.Sprint("https://" + *lang + ".wikipedia.org/wiki/" + *word)
 }
-func getPage(s string) (string, error) {
-	r, err := soup.Get(s)
-	if err != nil {
-		return "", errors.New("error: Not get url")
+
+func(w *Wiki) GetPage() error {
+	err := w.verifyArgs()
+	if err != nil{
+		return err
 	}
-	return r, nil
+	w.parseFlagToUrl()
+	r, err := soup.Get(w.Url)
+	if err != nil {
+		return errors.New("error: Not get url")
+	}
+	resp , err := w.parseToHTML(r)
+	if err != nil{
+		return errors.New("error to parse html")
+	}
+	fmt.Println(resp)
+	return nil
+	
 }
-func parseToHTML(s string) (string, error) {
+func(w *Wiki) parseToHTML(s string) (string, error) {
 	var text string
 	doc := soup.HTMLParse(s)
 	body := doc.Find("div", "id", "bodyContent")
@@ -59,7 +63,7 @@ func parseToHTML(s string) (string, error) {
 		text += fmt.Sprintf("%v:\n", strings.ToUpper(title.Text()))
 		ps := body.FindAll("p")
 		for _, p := range ps {
-			t, err := regexTratament(p.FullText())
+			t, err := w.regexTratament(p.FullText())
 			if err != nil {
 				return "", err
 			}
@@ -82,7 +86,7 @@ func parseToHTML(s string) (string, error) {
 	return text, nil
 }
 
-func regexTratament(s string) (string, error) {
+func(w *Wiki) regexTratament(s string) (string, error) {
 	re, err := regexp.Compile(`\[[0-9]*]`)
 	if err != nil {
 		return "", errors.New("error: regex error compile")
